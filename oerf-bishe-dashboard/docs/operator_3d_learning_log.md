@@ -5051,3 +5051,45 @@ v2 才完成正式判决，25/25 通过。CPU32 与 MPS32 的 prediction relativ
 下一步分两条线：MPS M0.1 只做这 96 条射线上的短程 voxel 优化并用 CPU 复核 checkpoint；CPU D0.6 则事前冻结 `S0_VOXEL / S1_FOURIER / S2_BOUNDED_RESIDUAL` 的 matched-budget 筛选。B1/B2 要进入 MPS，必须另过神经参数多方向梯度和连续 optimizer-step 内存门。完整数字见 [M0 公开大体场 MPS 门报告](open_nir_bos_m0_public_mps_result_2026-07-23.md)。
 
 **突破监测：没有突破。新增的是公开大体场上 CPU64/CPU32/MPS32 的值与 voxel-field 梯度桥、两个保留的工程失败和 152 项保存包审计；优化收敛、重建、神经参数梯度、算子学习、泛化和论文成功仍为 0。**
+
+## 187. 三个模型还没开跑，先把它们关进同一间考场
+
+M0 过门后，最容易犯的错误是立刻训练 Fourier MLP，然后拿一个看起来更小的误差说“神经表示更好”。D0.6 先把三条 arm 的考场锁死：`S0_VOXEL` 有 31,875 个参数，`S1_FOURIER` 有 31,873 个，`S2_BOUNDED_RESIDUAL` 有 31,970 个，最大差只有 97，也就是 0.3043%。它们都必须先输出同一个 `27 x 53 x 27` 栅格，再走同一个 128 点直线 ray forward，不能给神经场额外连续采样优势。
+
+公开 Phantom 的 12 x 512 条射线继续复用，但每个视角用确定性 hash 分成 400 fit、56 dev 和 56 audit。这里发现并堵住了一个泄漏口：如果 TRAINER 能打开整张公开观测图，它理论上就能读到 audit 像素。因此现在由独立 `SPLIT_BROKER` 一次性读取 manifest、二维 mask 和 12 张图，写出互不重叠且带哈希的 fit/dev/audit 私有 shard 后退出；TRAINER 只能挂载 fit/dev，九个 checkpoint 封存后 AUDITOR 才能挂载 audit。`n_GroundTruth.mat`、`flowcglsTV.mat` 和 `3Dmask.mat` 仍只能由最后的 GT scorer 打开。14 个 broker 输入、3 个 postseal 体数据、12 组 selection/split hash 和 10 个固定 batch hash 已经单独冻结。
+
+公平账本不再只数“训练步数”。每个 arm/seed 都有 4 个学习率候选、4 步短筛选、4 次完整 dev forward 和 110 次正式更新，合计 130 次 forward、126 次 VJP、123,648 次 ray evaluation；乘 128 个积分点后，主预算严格为 `15,826,944 RQWU`。最终 fit/dev/audit、GT、CGLS-TV anchor 和 256 点积分诊断都另计成本，不能假装免费。
+
+`S2` 也不能暗中多学：前 80 步残差分支关闭，必须和同 seed 的 `S1` 共享逐字节相同的 trunk/base 初值与轨迹；第 80 步才冻结 base，用 `rho = 0.25 * max(P95(|e*base|), 1e-3)` 固定残差幅度，最后 30 步只训练 97 参数 residual head。prefix hash 不同就直接失败，不解释模型效果。
+
+机器协议 SHA-256 已冻结为 `1ef2aa6f...8b50d8`，输入身份 SHA-256 是 `495c8f5e...ffff8e`。预提交机械验证已经检查 132 项，其中 129 项通过；三个预期失败分别是协议、输入身份和验证器源码还没有进入当前 Git HEAD。这是预期的先锁设计状态；把三者和测试提交后，才允许重跑 preflight。runner、dry-run 和正式训练授权此刻仍全部为 false。
+
+完整门包括 S0 至少把零场 fit MSE 降低 20%；S2 相对 S1 的 field 中位配对改善至少 5%，gradient/front 至少一项改善 2% 且其余不退化，audit median/p90/worst 分别守 2%/2%/5%，至少两个 seed 同向且任何 seed 不得伤害超过 5%。任何一条没过都记录 NO-GO，再按事前规则回退 S1 或 S0。
+
+**突破监测：没有突破。新增的是一个真正可证伪、参数与 RQWU 都对齐、GT 与 audit 分角色隔离的单场筛选协议；模型尚未训练，三维重建、算子学习、跨场/跨几何泛化、真实 OERF、算法优越和论文成功仍为 0。**
+
+## 188. 审计真的抓到了漏账，所以先修考场，不急着开跑
+
+上一节记录的是第一版冻结状态，不是最终绿灯。独立审计发现，LR 规则明明要求在 step 4 checkpoint 上用四个 fit batch 的 1,920 条射线统一复评，旧预算却只算了四次训练 forward 和完整 dev forward。四个训练 loss 来自四个不同 checkpoint，不能拿平均值冒充 step-4 fit-union loss；如果直接训练，账面和真实工作量就不一致。第一版 commit `01ce64d` 继续保留，没有覆盖，也没有产生任何训练结果。
+
+v1.1 把每个 LR 候选额外的一次 1,920-ray forward 写进协议。每个 `arm x seed` 因此改为 134 次 forward、126 次 VJP、131,328 次 ray evaluation，128 点积分对应 `16,809,984 RQWU`。这个量准确叫 matched projection-work budget，不是端到端 FLOPs；未来仍要单列参数计算、wall time、RSS 和 postseal 评分成本。
+
+公平性也补了三道锁。第一，三条 arm 都乘同一个解析边界 envelope，不再让 S0 和 S1/S2 带不同边界先验。第二，S1/S2 不只比较 step 0/80 哈希，而是绑定每个 LR trial 和前 80 步的 batch、loss、梯度、参数与 Adam state；第 81 步给残差头新建 step-0 optimizer。第三，G0 逐 arm 判有效，G3 只有 field、gradient/front 和 audit median/p90/worst 全部不伤害时才回退选 S1。
+
+audit 泄漏也从一句话变成四角色合同：broker 才能看 14 个原始公开输入，trainer 只收 fit/dev shard，九个 checkpoint 封存后 auditor 才看 audit，最后 GT scorer 才看真值、CGLS-TV 和三维 support。不过这仍只是合同，真实进程挂载隔离和负向测试还没实现，所以不能开训练。
+
+修复版协议 SHA 是 `28025859...270dd`，输入身份 SHA 是 `df7806ab...57688`，提交为 `f721eca`。提交前预检 133/136，唯一三项失败恰好是协议、身份和验证器还没进入 HEAD；提交后同一验证器 136/136 通过，并绑定三者源码哈希与外部公开 release `a385cce...f5604`。七个定向测试和 mutation tests 也全部通过。
+
+这次最有价值的结果不是一个更低的 loss，而是避免用错误预算跑出一个看似公平的模型比较。下一步先实现 fail-closed split broker、runner、参数梯度和 budget tests，再做不产出科学结论的 dry-run。正式训练授权仍为 false。
+
+**突破监测：没有突破。新增的是训练前被抓住并修复的预算漏洞，以及 136/136 的设计/输入/语义预检；split broker、runner、训练、三维重建、算子学习、泛化、真实 OERF、算法优势和论文成功仍为 0。**
+
+## 189. 数字全绿也不能直接上线：隐私门又挡住了一次
+
+第一次 136/136 保存包在本地逻辑上是有效的，但 Pages 过滤构建拒绝发布。原因不是算法或协议，而是 `validator_uses_project_venv` 的 detail 直接保存了本机 `.venv` 的绝对路径，其中带有 `/Users/...` 用户目录。它没有密码，也不是外部数据，但仍属于不该出现在公开证据里的本机身份信息。
+
+这次没有放宽 Pages 规则，也没有手工删掉 validation 的一行后假装原包可发布。v1 整包移到私有隔离区保留；验证器改为只输出相对标识 `.venv`，如果环境不符则输出固定的 `OUTSIDE_REQUIRED_PROJECT_VENV`，不回显真实路径。这个修复提交为 `1f0136c`，没有改变协议 SHA `28025859...270dd`、输入 SHA `df7806ab...57688`、136 个检查、预算、拆分或任何判决门。
+
+重新生成的 publish-safe v2 仍是 136/136，validation SHA 为 `9693b18c...2450c`，三项 source-binding 与验证器 SHA 都指向 `1f0136c`。全文搜索确认不含 `/Users/`、用户名、VPN 账号、密码或本地绝对路径。接下来 Pages 构建必须从包含 v2 的干净 HEAD 重做，manifest commit 对不上就不得部署。
+
+**突破监测：没有突破。新增的是一次被保留的发布隐私失败和一个可公开的 136/136 v2；训练、重建、算子学习、泛化、真实 OERF、算法优势和论文成功仍为 0。**

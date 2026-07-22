@@ -5019,3 +5019,19 @@ D0.5 通过后才允许优化烟测：发布 CGLS-TV 只作固定锚点；低分
 完整表格、六个师兄接口问题和复现入口见 [公开 Phantom 1 值重放诊断报告](open_nir_bos_d0_forward_identity_result_2026-07-23.md)。
 
 **突破监测：没有突破。新增的是一个先失败、再按冻结语义修复的 D0 值重放诊断，以及独立审计发现的 GT 冻结门和可微实现缺口；新算法、训练、真实重建、优越性、泛化与论文成功仍为 0。**
+
+## 185. 尺子终于可以反向传播，但还没有开始解题
+
+上一轮 D0 的 NumPy/SciPy forward 能重放值，却不能把梯度传给网络。这一轮先把 D0.5 的 CPU64、MPS32、有限差分、JVP/VJP 和 ROI 外零梯度阈值写进 JSON，协议 SHA-256 固定为 `80df1e59...d71b3`，然后才第一次运行。
+
+核心实现没有搬作者 CUDA 代码。它显式写了 `2h/N` 的 cell-centred 网格、`np.gradient(edge_order=2)` 的边界公式、三线性 border 插值、ray--AABB 和 midpoint quadrature。这样做比调用一个黑盒 `grid_sample` 麻烦，但 XYZ 轴序、边界和无效 ray 的每一步都能和 SciPy 对照。
+
+CPU64 的合成场值误差是 `4.58e-16`，有限差分/JVP 是 `2.45e-10`，JVP/VJP 对偶缺陷是 `1.97e-15`。公开 Phantom 用 12 个视角、768 条固定 ray、128 个积分点复跑发布 CGLS-TV 场，Torch/SciPy relative-L2 是 `3.06e-16`。这些数字的含义是“两把数值尺子一致”，不是“重建误差只有 1e-16”。
+
+第一次 MPS v0 没有假装成功。审计统计器在 Apple GPU 上直接请求 float64，后端报错；错误结果目录保留。修复为先搬到 CPU 再转 float64 后，v1 的 MPS 值误差 `9.16e-8`、有限差分/JVP `1.86e-4`、对偶缺陷 `4.98e-7`，都过了事前阈值。14 个本地测试通过，证据包复核器又重跑公开射线、不同形状随机场和 autograd gradcheck，88/88 通过。它直接导入被审 forward，所以这是包一致性与异构复跑，不是第二套独立实现。
+
+这张绿灯只授权一件很窄的事：先在 CPU64 上比较同一个公开 Phantom 的 low-resolution voxel、Fourier MLP 和 Fourier base + bounded residual matched-budget 优化烟测。MPS 当前只是小型合成兼容性 PASS；公开场 mini-batch 前向、反向、有限性和内存门没过以前，不授权 MPS Phantom 训练。它也不授权 FNO/DeepONet 排行榜，因为这里只有一个独立三维函数；不授权 geometry 或 curved-ray 梯度，因为当前导数只对固定 rays、改变 voxel field 成立。
+
+审计还留下三个要正面写出的口子：正式 benchmark 前应补完整 6,144 rays 与逐视角尾部；CPU32 需要单独选择有限差分步长，不能照搬 CPU64 的 `1e-6`；Fourier MLP 参数梯度还要在 B1 用多个方向复查。完整数字和下一组三臂设计见 [D0.5 可微前向门禁结果](open_nir_bos_d0_5_torch_forward_result_2026-07-23.md)。
+
+**突破监测：没有突破。新增的是一个 CPU 主门通过、MPS 合成兼容门通过的可微薄射线实现、保留的第一次 MPS 失败、公开值重放和 88 项包一致性/异构复跑。训练、三维重建、算子泛化、真实 OERF、算法优越和论文成功仍为 0。**

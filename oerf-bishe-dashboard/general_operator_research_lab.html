@@ -219,7 +219,7 @@
       <a href="#temporal-qcal-profile-inference"><code>q_cal</code> 联合推断路线</a>
       <a href="#rig-session-calibration">rig/session 校准与漂移门</a>
       <a href="#open-nir-bos-readiness">公开 NIR-BOS 复现门</a>
-      <a href="#open-nir-bos-forward-identity">公开 forward 接线</a>
+      <a href="#open-nir-bos-forward-identity">可微 forward 接线</a>
       <a href="#gct-kmix-o1">GCT-KMix 上界判决</a>
       <a href="#breakthrough-watch">突破监测</a>
       <a href="#support-loro-result">LORO 正式结果</a>
@@ -1579,10 +1579,10 @@
         <!-- end public NIR-BOS release readiness audit -->
         <!-- public NIR-BOS clean-room forward identity -->
         <div id="open-nir-bos-forward-identity" class="panel" style="margin-top:12px; border-top:4px solid var(--gold); scroll-margin-top:18px;">
-          <div class="chips"><span class="chip coral">V0 NO-GO PRESERVED</span><span class="chip blue">V1 MACHINE GATES PASS</span><span class="chip gold">D0.5 AUTOGRAD GAP</span></div>
-          <h3 style="margin-top:8px;">公开 Phantom 的值重放链可运行，但还不能直接训练</h3>
-          <p>我们没有运行或复制作者 CUDA 代码，而是独立实现 16-bit PNG、相机 ray、ray--AABB、三维折射率梯度和 midpoint quadrature。v0 因 ROI 语义和积分收敛正式失败；看过失败后先冻结修复协议，再用相同 12 个视角与相同 6,144 条 ray 执行 v1。</p>
-          <div class="alert warning"><strong><code>D0_FORWARD_IDENTITY_PASS_<wbr>IMPLEMENTATION_<wbr>DIAGNOSTIC_ONLY</code></strong><span>这是保留的机器状态。冻结 PASS 没有使用 GT Pearson/L2；当前 NumPy/SciPy forward 也没有 autograd。人工结论降级为“post-open 值重放实现诊断”，训练前先过 D0.5。</span></div>
+          <div class="chips"><span class="chip coral">D0 V0 NO-GO PRESERVED</span><span class="chip blue">D0.5 CPU + PUBLIC VALUE PASS</span><span class="chip gold">MPS SYNTHETIC COMPATIBILITY PASS</span></div>
+          <h3 style="margin-top:8px;">公开 Phantom 的值重放链已有可微镜像；下一步只获准单 Phantom 优化烟测</h3>
+          <p>我们没有运行或复制作者 CUDA 代码。D0 先独立实现 16-bit PNG、相机 ray、ray--AABB、三维折射率梯度和 midpoint quadrature；v0 正式失败，冻结修复后 v1 通过值重放。D0.5 再用 clean-room PyTorch 显式复刻同一数值语义，并在看到结果前锁定 CPU64、MPS32、有限差分、JVP/VJP 与 ROI 外零梯度门。</p>
+          <div class="alert success"><strong><code>D0_5_DIFFERENTIABLE_<wbr>FORWARD_PASS_<wbr>IMPLEMENTATION_ONLY</code></strong><span>CPU 主门与公开 768-ray 值重放通过；MPS 只通过小型合成兼容矩阵。证据包一致性与异构复跑 88 / 88，但它共享被审实现，不是第二套独立物理复现。</span></div>
           <div class="diagnostic-metric-grid four-up" style="margin-top:10px;">
             <div class="metric"><b>6,144 / 6,144</b><span>12 views x 512 rays；ROI 外 ray 预测为零但仍留在总分母</span></div>
             <div class="metric"><b>0.98814</b><span>GT 对公开 XYZ projection 的 post-open 平均 Pearson；不是冻结门</span></div>
@@ -1610,31 +1610,54 @@
               <tr><td>released CGLS-TV</td><td>0.9809594</td><td>1.0043039</td><td>0.2038715</td><td>可作发布基线，但没有优于 GT 重放</td></tr>
             </tbody>
           </table></div>
-          <div class="alert critical"><strong>D0.5 是下一道硬门</strong><span>先做 Torch/JAX 对 NumPy reference 的值一致性，再做有限差分方向导数和伴随/JVP/VJP 点积测试。任一失败就不训练；新 GT 接受门只能在独立 phantom 上事前冻结。</span></div>
-          <div class="alert info"><strong>当前机器授权：<code>training_authorized=false</code></strong><span>冻结 summary 的旧 next action 原样保留；事后审计覆盖层明确要求 <code>d0_5_required=true</code>。自动化和人工判断都应读取覆盖层，不能只摘旧 PASS。</span></div>
-          <div class="pipeline four-step" aria-label="公开 Phantom 从值重放到优化烟测的前置路线">
-            <div><b>D0.5 · value parity</b><span>同 field/ray/quadrature，Torch/JAX 对 NumPy reference。</span></div>
-            <div><b>G0 · gradient</b><span>有限差分 + adjoint/JVP/VJP；边界和 ROI 外 ray 都覆盖。</span></div>
-            <div><b>B1/B2 · smoke</b><span>voxel 与 Fourier MLP；只看优化、成本和失败模式。</span></div>
-            <div><b>H1 · bounded residual</b><span>B2 base；对 parameter-matched 与 call-matched B2。</span></div>
+          <div class="two-col" style="margin-top:12px; align-items:start;">
+            <figure style="margin:0;"><a href="learning_labs/results/open_nir_bos_d0_5_torch_forward_v1/d0_5_gate.png" aria-label="打开 D0.5 可微薄射线门禁图"><img src="learning_labs/results/open_nir_bos_d0_5_torch_forward_v1/d0_5_gate.png" width="2520" height="1260" loading="lazy" decoding="async" alt="D0.5 可微薄射线门禁：CPU 主门、公开 Phantom 值重放和 Apple MPS 兼容门相对冻结阈值的比值" /></a><figcaption>虚线是冻结阈值。所有柱均在阈值左侧；这是实现门，不是模型排行榜。</figcaption></figure>
+            <div>
+              <h3>D0.5 的绿灯具体是什么</h3>
+              <div class="diagnostic-metric-grid four-up" style="margin-top:8px;">
+                <div class="metric"><b>3.06e-16</b><span>公开 CGLS-TV 场 768-ray Torch/SciPy relative-L2</span></div>
+                <div class="metric"><b>2.45e-10</b><span>CPU64 中心有限差分 vs JVP relative error</span></div>
+                <div class="metric"><b>4.98e-7</b><span>MPS32 JVP/VJP 对偶缺陷；冻结上限 1e-4</span></div>
+                <div class="metric"><b>88 / 88</b><span>包一致性、阈值、公开复跑、异构探针和 gradcheck</span></div>
+              </div>
+              <ol>
+                <li><strong>第一次错误保留：</strong>MPS v0 因错误的 device/dtype 转换失败，没有覆盖。</li>
+                <li><strong>修复不改门：</strong>先搬到 CPU 再升到 float64 做审计统计；协议哈希仍是 <code>80df1e59...d71b3</code>。</li>
+                <li><strong>固定 geometry：</strong>当前 autograd 只对 voxel field；不宣称相机、AABB 分支或曲光线轨迹可微。</li>
+                <li><strong>单 field：</strong>768 条 ray 仍来自同一个 Phantom，不能训练或证明 operator generalization。</li>
+                <li><strong>源码绑定：</strong>覆盖层绑定私有 commit <code>4ec192f</code>、五个核心源码哈希与三个结果目录的精确文件集合；Python 源不进入 Pages。</li>
+              </ol>
+            </div>
           </div>
-          <div class="alert warning"><strong>下一轮仍不是方法排行榜</strong><span>CGLS-TV 是固定锚点，不能与训练臂强行匹配 optimizer step；正式排序前只冻结一个 primary resource budget，并完整报告 steps、ray calls、wall、参数与内存。独立 field/session 到位前不得写 superiority 或泛化。</span></div>
+          <div class="alert success"><strong>当前机器授权：<code>single_public_phantom_optimization_smoke=true</code></strong><span>只允许 CPU64 用同一 opened Phantom 检查优化与失败模式；<code>mps_single_public_phantom_smoke=false</code>，先补公开场 mini-batch 前向/反向门。<code>new_algorithm=false</code>、<code>reconstruction_success=false</code>、<code>generalization=false</code>、<code>paper_success=false</code>、<code>breakthrough=false</code>。</span></div>
+          <div class="pipeline four-step" aria-label="D0.5 之后单公开 Phantom 优化烟测路线">
+            <div><b>D0.5 · CPU 已完成</b><span>值一致性、FD、JVP/VJP 与 ROI 外零梯度；MPS 仅合成兼容。</span></div>
+            <div><b>M0 + B0</b><span>先补公开场 MPS 小批门；CPU64 voxel control 可并行开始。</span></div>
+            <div><b>B1 · Fourier MLP</b><span>先做参数梯度多方向检查，再比较同一 primary budget。</span></div>
+            <div><b>B2 · bounded residual</b><span>Fourier base + 有界修正；失败必须精确回退 B1。</span></div>
+          </div>
+          <div class="alert warning"><strong>下一轮仍不是 FNO / DeepONet 排行榜</strong><span>独立审计要求正式 benchmark 前再补完整 6,144 rays、逐视角尾部和 CPU32--CPU64--MPS32 桥接。更关键的是当前只有一个独立三维函数；多 field/session 与何师兄真实 callable 到位前不得写 superiority 或泛化。</span></div>
           <div class="actions" style="margin-top:12px;">
-            <a class="button primary" href="document_reader.html?doc=docs%2Fopen_nir_bos_d0_forward_identity_result_2026-07-23.md">读完整结果与师兄六问</a>
-            <a class="button" href="learning_labs/results/open_nir_bos_d0_forward_identity_v1/summary.json">v1 机器摘要</a>
-            <a class="button" href="learning_labs/results/open_nir_bos_d0_forward_identity_v1_validation/validation.json">281 项验证记录</a>
-            <a class="button" href="docs/open_nir_bos_d0_forward_identity_v1_audit_overlay.json">机器审计覆盖层</a>
-            <a class="button" href="learning_labs/results/open_nir_bos_d0_forward_identity_v0/summary.json">保留的 v0 NO-GO</a>
+            <a class="button primary" href="document_reader.html?doc=docs%2Fopen_nir_bos_d0_5_torch_forward_result_2026-07-23.md">读 D0.5 完整结果与下一组三臂</a>
+            <a class="button" href="learning_labs/results/open_nir_bos_d0_5_torch_forward_v1/summary.json">D0.5 v1 机器摘要</a>
+            <a class="button" href="learning_labs/results/open_nir_bos_d0_5_torch_forward_v1_validation/validation.json">88 项包一致性与异构复跑</a>
+            <a class="button" href="docs/open_nir_bos_d0_5_training_authorization_overlay.json">机器授权覆盖层</a>
+            <a class="button" href="learning_labs/results/open_nir_bos_d0_5_torch_forward_v0/summary.json">保留的 MPS v0 错误</a>
+            <a class="button" href="document_reader.html?doc=docs%2Fopen_nir_bos_d0_forward_identity_result_2026-07-23.md">回看 D0 值重放</a>
           </div>
           <details class="archive-details">
-            <summary>展开冻结协议、充分统计、输入哈希与一级来源</summary>
+            <summary>展开 D0.5 协议、代码、统计、D0 历史与一级来源</summary>
             <div class="actions" style="padding:0 14px 14px;">
+              <a class="button" href="learning_labs/open_nir_bos_d0_5_torch_forward_protocol.json">D0.5 冻结协议</a>
+              <a class="button" href="learning_labs/results/open_nir_bos_d0_5_torch_forward_v1/metrics.csv">16 项冻结门</a>
+              <a class="button" href="learning_labs/results/open_nir_bos_d0_5_torch_forward_v1/comparison_statistics.csv">D0.5 聚合统计</a>
+              <a class="button" href="learning_labs/results/open_nir_bos_d0_5_torch_forward_v1/checksums.sha256">D0.5 结果 SHA-256</a>
               <a class="button" href="document_reader.html?doc=docs%2Fopen_nir_bos_d0_forward_identity_repair_protocol_2026-07-23.md">v0 -> v1 修复协议</a>
               <a class="button" href="learning_labs/open_nir_bos_d0_forward_identity_v1_protocol.json">v1 冻结机器合同</a>
               <a class="button" href="learning_labs/results/open_nir_bos_d0_forward_identity_v1/sufficient_statistics.csv">充分统计量</a>
               <a class="button" href="learning_labs/results/open_nir_bos_d0_forward_identity_v1/input_manifest.csv">18 项输入哈希</a>
               <a class="button" href="learning_labs/results/open_nir_bos_d0_forward_identity_v1/checksums.sha256">结果 SHA-256</a>
-              <a class="button" href="document_reader.html?doc=docs%2Foperator_3d_learning_log.md&amp;anchor=184-先把一条光线接对才有资格训练网络">讲人话日志 184</a>
+              <a class="button" href="document_reader.html?doc=docs%2Foperator_3d_learning_log.md&amp;anchor=185-尺子终于可以反向传播但还没有开始解题">讲人话日志 185</a>
               <a class="button" href="https://arxiv.org/html/2605.11454">一级来源论文</a>
               <a class="button" href="https://github.com/Weihu22/Neural-Implicit-Reconstruction-for-BOS">作者仓库</a>
             </div>

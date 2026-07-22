@@ -5035,3 +5035,19 @@ CPU64 的合成场值误差是 `4.58e-16`，有限差分/JVP 是 `2.45e-10`，JV
 审计还留下三个要正面写出的口子：正式 benchmark 前应补完整 6,144 rays 与逐视角尾部；CPU32 需要单独选择有限差分步长，不能照搬 CPU64 的 `1e-6`；Fourier MLP 参数梯度还要在 B1 用多个方向复查。完整数字和下一组三臂设计见 [D0.5 可微前向门禁结果](open_nir_bos_d0_5_torch_forward_result_2026-07-23.md)。
 
 **突破监测：没有突破。新增的是一个 CPU 主门通过、MPS 合成兼容门通过的可微薄射线实现、保留的第一次 MPS 失败、公开值重放和 88 项包一致性/异构复跑。训练、三维重建、算子泛化、真实 OERF、算法优越和论文成功仍为 0。**
+
+## 186. 小尺子换成了公开大体场，但仍只准做一次短烟测
+
+D0.5 在很小的合成场上证明 Apple MPS 能反向传播，却没有回答 `140 x 294 x 140` 的公开体场会不会爆内存、三线性 gather 的反向累加会不会漂、以及公开观测形成的 loss 能不能给出与 CPU 一致的三维场梯度。M0 就只补这道设备桥，不训练网络，也不调学习率。
+
+正式运行前先冻结 12 个视角、每视角 8 条射线、128 点 midpoint quadrature、chunk 24、三条无效射线、三次完整 MPS 重复和 25 个数值门。协议 SHA-256 是 `43fef428...55ea8`，事前 commit 是 `6ea5ba7`。第一次 v0 在方向导数的审计标量转换处报错；修一次后，v1 又在主 loss 的同类转换处报错。两个失败包都保留，并且都没有打开任何训练授权。第二次修复只是把审计转换统一成“先搬到 CPU，再升到 float64”，没有改协议、射线、阈值或物理 forward。
+
+v2 才完成正式判决，25/25 通过。CPU32 与 MPS32 的 prediction relative-L2 是 `9.60e-8`，MPS32 与 CPU64 的 field-gradient relative-L2 是 `1.08e-4`，MPS 方向导数误差是 `2.76e-5`。三次完整重复的 prediction 最大漂移为 `0`，gradient 最大漂移为 `9.92e-10`；三条无效射线的输出和场梯度都严格为零。四个同步采样点看到的最大 driver allocation 增量约 `1.016 GiB`，占事前 2 GiB 门的 `50.8%`，清理后 current allocation 增量为零。这里的内存证据不是连续 profiler 峰值，不能扩写成“长训练内存稳定”。
+
+保存包又通过 152/152 项一致性检查：协议和源码绑定、v0/v1/v2 精确文件集、25 行阈值表、12 个射线选择哈希、17 个公开输入哈希和越权 claim 都被复核。验证器没有实现第二套物理 forward，也没有重跑 MPS；结果包没有保存 576 万体素的完整梯度，所以这仍是包一致性审计，不是独立物理复现。
+
+现在唯一新增的机器授权是 `mps_single_public_phantom_voxel_smoke=true`：只能对同一个 opened Phantom、同一组冻结 96 条射线、固定 straight rays、ROI、128 点积分和 chunk 24 做很短的 voxel-field optimizer/failure-mode smoke。任意 batch、Fourier MLP、bounded residual、10 步内存稳定、完整训练、三维重建、operator learning、跨 field/geometry 泛化、真实 OERF、优于 DeepONet/FNO/NeRIF/NIRP、论文成功和突破仍全部为 false。
+
+下一步分两条线：MPS M0.1 只做这 96 条射线上的短程 voxel 优化并用 CPU 复核 checkpoint；CPU D0.6 则事前冻结 `S0_VOXEL / S1_FOURIER / S2_BOUNDED_RESIDUAL` 的 matched-budget 筛选。B1/B2 要进入 MPS，必须另过神经参数多方向梯度和连续 optimizer-step 内存门。完整数字见 [M0 公开大体场 MPS 门报告](open_nir_bos_m0_public_mps_result_2026-07-23.md)。
+
+**突破监测：没有突破。新增的是公开大体场上 CPU64/CPU32/MPS32 的值与 voxel-field 梯度桥、两个保留的工程失败和 152 项保存包审计；优化收敛、重建、神经参数梯度、算子学习、泛化和论文成功仍为 0。**

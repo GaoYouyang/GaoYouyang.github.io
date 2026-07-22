@@ -1579,8 +1579,8 @@
         <!-- end public NIR-BOS release readiness audit -->
         <!-- public NIR-BOS clean-room forward identity -->
         <div id="open-nir-bos-forward-identity" class="panel" style="margin-top:12px; border-top:4px solid var(--gold); scroll-margin-top:18px;">
-          <div class="chips"><span class="chip coral">D0 V0 NO-GO PRESERVED</span><span class="chip blue">D0.5 CPU + PUBLIC VALUE PASS</span><span class="chip gold">MPS SYNTHETIC COMPATIBILITY PASS</span></div>
-          <h3 style="margin-top:8px;">公开 Phantom 的值重放链已有可微镜像；下一步只获准单 Phantom 优化烟测</h3>
+          <div class="chips"><span class="chip coral">D0 V0 NO-GO PRESERVED</span><span class="chip blue">D0.5 CPU + PUBLIC VALUE PASS</span><span class="chip gold">MPS SYNTHETIC COMPATIBILITY PASS</span><span class="chip blue">M0 PUBLIC FIELD PASS</span></div>
+          <h3 style="margin-top:8px;">公开 Phantom 的值与场梯度链已接通；M0 只开放冻结 batch 的 voxel 烟测</h3>
           <p>我们没有运行或复制作者 CUDA 代码。D0 先独立实现 16-bit PNG、相机 ray、ray--AABB、三维折射率梯度和 midpoint quadrature；v0 正式失败，冻结修复后 v1 通过值重放。D0.5 再用 clean-room PyTorch 显式复刻同一数值语义，并在看到结果前锁定 CPU64、MPS32、有限差分、JVP/VJP 与 ROI 外零梯度门。</p>
           <div class="alert success"><strong><code>D0_5_DIFFERENTIABLE_<wbr>FORWARD_PASS_<wbr>IMPLEMENTATION_ONLY</code></strong><span>CPU 主门与公开 768-ray 值重放通过；MPS 只通过小型合成兼容矩阵。证据包一致性与异构复跑 88 / 88，但它共享被审实现，不是第二套独立物理复现。</span></div>
           <div class="diagnostic-metric-grid four-up" style="margin-top:10px;">
@@ -1629,13 +1629,60 @@
               </ol>
             </div>
           </div>
-          <div class="alert success"><strong>当前机器授权：<code>single_public_phantom_optimization_smoke=true</code></strong><span>只允许 CPU64 用同一 opened Phantom 检查优化与失败模式；<code>mps_single_public_phantom_smoke=false</code>，先补公开场 mini-batch 前向/反向门。<code>new_algorithm=false</code>、<code>reconstruction_success=false</code>、<code>generalization=false</code>、<code>paper_success=false</code>、<code>breakthrough=false</code>。</span></div>
-          <div class="pipeline four-step" aria-label="D0.5 之后单公开 Phantom 优化烟测路线">
-            <div><b>D0.5 · CPU 已完成</b><span>值一致性、FD、JVP/VJP 与 ROI 外零梯度；MPS 仅合成兼容。</span></div>
-            <div><b>M0 + B0</b><span>先补公开场 MPS 小批门；CPU64 voxel control 可并行开始。</span></div>
-            <div><b>B1 · Fourier MLP</b><span>先做参数梯度多方向检查，再比较同一 primary budget。</span></div>
-            <div><b>B2 · bounded residual</b><span>Fourier base + 有界修正；失败必须精确回退 B1。</span></div>
+          <div class="alert success"><strong>D0.5 当时的机器授权（已被下方 M0 局部覆盖）：<code>single_public_phantom_optimization_smoke=true</code></strong><span>当时只允许 CPU64 用同一 opened Phantom 检查优化与失败模式；历史覆盖层中的 <code>mps_single_public_phantom_smoke=false</code> 保持不改，不能单独作为当前决定。<code>new_algorithm=false</code>、<code>reconstruction_success=false</code>、<code>generalization=false</code>、<code>paper_success=false</code>、<code>breakthrough=false</code>。</span></div>
+          <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--line);">
+            <div class="chips"><span class="chip blue">M0 PUBLIC FIELD PASS</span><span class="chip gold">25 / 25 PREREGISTERED</span><span class="chip blue">152 PACKAGE CHECKS</span><span class="chip coral">NO ALGORITHM CLAIM</span></div>
+            <h3 style="margin-top:8px;">公开大体场 MPS 反向桥已过门，但只授权 voxel 小烟测</h3>
+            <p>M0 把 D0.5 的小型合成兼容检查推进到作者公开的 <code>140 x 294 x 140</code> CGLS-TV 场：12 个视角、每视角 8 条冻结射线，在 CPU64、CPU32 和 MPS32 上比较同一个预测、loss 与整个三维场的梯度。协议 SHA-256 <code>43fef428...55ea8</code> 在第一次执行前已锁定。</p>
+            <div class="alert success"><strong><code>M0_PUBLIC_MPS_FORWARD_<wbr>BACKWARD_PASS_<wbr>IMPLEMENTATION_ONLY</code></strong><span>25 / 25 事前门通过；只证明同一公开 Phantom、同一冻结 96-ray batch、固定直线几何和 voxel-field 参数化的实现兼容。不是优化收敛、三维重建、神经参数梯度或算子学习结果。</span></div>
+            <div class="diagnostic-metric-grid four-up" style="margin-top:10px;">
+              <div class="metric"><b>96 frozen rays</b><span>12 views x 8；身份由 12 个 selection hash 锁定</span></div>
+              <div class="metric"><b>1.08e-4</b><span>MPS32 vs CPU64 field-gradient relative-L2；门为 1e-3</span></div>
+              <div class="metric"><b>2.76e-5</b><span>MPS 中心差分方向导数误差；门为 5e-3</span></div>
+              <div class="metric"><b>1.016 GiB</b><span>四点 sampled driver delta；约占 2 GiB 门的 50.8%</span></div>
+            </div>
+            <div class="two-col" style="margin-top:12px; align-items:start;">
+              <figure style="margin:0;"><a href="learning_labs/results/open_nir_bos_m0_public_mps_v2/m0_public_mps_gate.png" aria-label="打开公开大体场 MPS 前向反向门图"><img src="learning_labs/results/open_nir_bos_m0_public_mps_v2/m0_public_mps_gate.png" width="2520" height="1260" loading="lazy" decoding="async" alt="公开 Phantom M0：CPU64、CPU32 与 MPS32 的预测、场梯度、方向导数、重复性和采样内存门" /></a><figcaption>柱高表示实测值相对事前阈值。它是设备与梯度路径的实现门，不是模型排行榜或重建结果。</figcaption></figure>
+              <div>
+                <h3>两次工程失败也属于证据</h3>
+                <ol>
+                  <li><strong>v0：</strong>方向导数统计直接把 MPS 标量升为 CPU float64，执行停止，授权保持 false。</li>
+                  <li><strong>v1：</strong>第一次修复漏掉主 loss 的同类转换，再次停止；失败包继续保留。</li>
+                  <li><strong>v2：</strong>统一为先搬 CPU、再升 float64；协议、射线、阈值和物理 forward 没有改变。</li>
+                  <li><strong>重复性：</strong>三次完整 MPS prediction 漂移为 0，field-gradient 最大漂移 <code>9.92e-10</code>。</li>
+                  <li><strong>无效射线：</strong>三条冻结 invalid rays 在 CPU32/MPS32 都给出严格零输出和零场梯度。</li>
+                </ol>
+              </div>
+            </div>
+            <div class="alert info"><strong>当前有效授权：<code>mps_single_public_phantom_voxel_smoke=true</code></strong><span>只允许同一 opened Phantom、同一冻结 96 条射线、straight rays、固定 ROI、128 点积分和 chunk 24 的短程 voxel optimizer/failure-mode smoke。<code>mps_fourier_mlp_or_bounded_residual=false</code>、<code>full_training=false</code>、<code>new_algorithm=false</code>、<code>reconstruction_success=false</code>、<code>operator_learning=false</code>、<code>generalization=false</code>、<code>paper_success=false</code>、<code>breakthrough=false</code>。</span></div>
+            <div class="pipeline four-step" aria-label="M0 之后的公开 Phantom 参数化筛选路线">
+              <div><b>M0 · 已完成</b><span>公开大体场值、场梯度、方向导数、重复性和采样内存门。</span></div>
+              <div><b>M0.1 · 下一设备门</b><span>只在冻结 96 rays 上做短程 voxel 优化，并用 CPU 复核 checkpoint。</span></div>
+              <div><b>D0.6 · CPU 预注册</b><span>同预算比较 S0 voxel、S1 Fourier、S2 bounded residual 的失败模式。</span></div>
+              <div><b>B1/B2 · 另行授权</b><span>神经参数多方向梯度与连续 optimizer-step 内存门通过后才能进 MPS。</span></div>
+            </div>
+            <div class="alert warning"><strong>152 / 152 不是第二套物理复现</strong><span>验证器复核协议、哈希、精确文件集、25 行阈值和公开输入身份，但没有重跑 MPS，也无法从保存包独立重算 576 万体素的完整梯度。内存是四个同步采样点，不是真实峰值轨迹。</span></div>
+            <div class="actions" style="margin-top:12px;">
+              <a class="button primary" href="document_reader.html?doc=docs%2Fopen_nir_bos_m0_public_mps_result_2026-07-23.md">读 M0 完整结果</a>
+              <a class="button" href="learning_labs/results/open_nir_bos_m0_public_mps_v2/summary.json">v2 机器摘要</a>
+              <a class="button" href="learning_labs/results/open_nir_bos_m0_public_mps_v2/metrics.csv">25 项事前门</a>
+              <a class="button" href="learning_labs/results/open_nir_bos_m0_public_mps_v2_validation/validation.json">152 项包审计</a>
+              <a class="button" href="docs/open_nir_bos_m0_public_mps_authorization_overlay.json">当前授权覆盖层</a>
+              <a class="button" href="learning_labs/results/open_nir_bos_m0_public_mps_v0/summary.json">保留的 v0 错误</a>
+              <a class="button" href="learning_labs/results/open_nir_bos_m0_public_mps_v1/summary.json">保留的 v1 错误</a>
+              <a class="button" href="document_reader.html?doc=docs%2Foperator_3d_learning_log.md&amp;anchor=186-小尺子换成了公开大体场但仍只准做一次短烟测">讲人话日志 186</a>
+            </div>
+            <div class="alert info" style="margin-bottom:0;"><strong>突破监测：否</strong><span>新增的是公开大体场的设备/梯度实现门和可追溯失败，不是算法、训练、重建、泛化或论文突破。</span></div>
           </div>
+          <details class="archive-details">
+            <summary>D0.5 当时的路线规划（M0 已完成，留作历史）</summary>
+            <div class="pipeline four-step" aria-label="D0.5 之后单公开 Phantom 优化烟测历史路线" style="margin:0 14px 14px;">
+              <div><b>D0.5 · CPU 已完成</b><span>值一致性、FD、JVP/VJP 与 ROI 外零梯度；MPS 仅合成兼容。</span></div>
+              <div><b>M0 + B0</b><span>当时计划先补公开场 MPS 小批门；M0 现已完成，B0 尚未正式运行。</span></div>
+              <div><b>B1 · Fourier MLP</b><span>先做参数梯度多方向检查，再比较同一 primary budget。</span></div>
+              <div><b>B2 · bounded residual</b><span>Fourier base + 有界修正；失败必须精确回退 B1。</span></div>
+            </div>
+          </details>
           <div class="alert warning"><strong>下一轮仍不是 FNO / DeepONet 排行榜</strong><span>独立审计要求正式 benchmark 前再补完整 6,144 rays、逐视角尾部和 CPU32--CPU64--MPS32 桥接。更关键的是当前只有一个独立三维函数；多 field/session 与何师兄真实 callable 到位前不得写 superiority 或泛化。</span></div>
           <div class="actions" style="margin-top:12px;">
             <a class="button primary" href="document_reader.html?doc=docs%2Fopen_nir_bos_d0_5_torch_forward_result_2026-07-23.md">读 D0.5 完整结果与下一组三臂</a>

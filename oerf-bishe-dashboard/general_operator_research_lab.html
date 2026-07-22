@@ -65,6 +65,7 @@
     .metric-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
     .real-metric-grid { grid-template-columns:repeat(4,minmax(0,1fr)); margin:14px 0; }
     .diagnostic-metric-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:14px 0; }
+    .diagnostic-metric-grid.four-up { grid-template-columns:repeat(4,minmax(0,1fr)); }
     .metric { min-height:112px; padding:14px; }
     .metric b { display:block; margin-bottom:4px; color:var(--teal); font-size:28px; }
     .metric span { color:var(--muted); font-size:12px; }
@@ -103,6 +104,7 @@
     .failed-state b { color:var(--coral); }
     .table-scroll-hint { display:none; margin:8px 2px -4px; color:var(--muted); font-size:12px; font-weight:760; }
     .pipeline { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:8px; margin:14px 0; }
+    .pipeline.four-step { grid-template-columns:repeat(4,minmax(0,1fr)); }
     .pipeline div { position:relative; min-height:112px; padding:12px; border-top:4px solid var(--teal); background:rgba(255,255,255,.94); }
     .pipeline div:not(:last-child)::after { content:"→"; position:absolute; right:-10px; top:37px; z-index:2; color:var(--blue); font-size:20px; font-weight:900; }
     .pipeline b { display:block; margin-bottom:4px; font-size:12px; }
@@ -153,8 +155,12 @@
       .section-head > .actions { width:100%; max-width:none; justify-content:flex-start; }
       .candidate-grid,.source-grid,.data-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .diagnostic-metric-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .diagnostic-metric-grid.four-up { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .pipeline { grid-template-columns:repeat(3,minmax(0,1fr)); }
       .pipeline div:nth-child(3)::after { display:none; }
+      .pipeline.four-step { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .pipeline.four-step div:nth-child(2)::after { display:none; }
+      .pipeline.four-step div:nth-child(3)::after { display:block; }
       .week-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .real-metric-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
     }
@@ -165,8 +171,12 @@
       .nav a { flex:0 0 auto; }
       .metric-grid,.real-metric-grid,.evidence-grid,.candidate-grid,.source-grid,.data-grid,.week-grid,.library-strip { grid-template-columns:1fr; }
       .diagnostic-metric-grid { grid-template-columns:1fr; }
+      .diagnostic-metric-grid.four-up { grid-template-columns:1fr; }
       .pipeline { grid-template-columns:1fr; }
+      .pipeline.four-step { grid-template-columns:1fr; }
       .pipeline div::after { display:none; }
+      .pipeline.four-step div::after { display:none; }
+      .pipeline.four-step div:nth-child(3)::after { display:none; }
       .filter-field { min-width:100%; }
       .table-scroll-hint { display:block; }
       .result-table-wrap { box-shadow:inset -14px 0 16px -18px rgba(23,37,43,.75); }
@@ -209,6 +219,7 @@
       <a href="#temporal-qcal-profile-inference"><code>q_cal</code> 联合推断路线</a>
       <a href="#rig-session-calibration">rig/session 校准与漂移门</a>
       <a href="#open-nir-bos-readiness">公开 NIR-BOS 复现门</a>
+      <a href="#open-nir-bos-forward-identity">公开 forward 接线</a>
       <a href="#gct-kmix-o1">GCT-KMix 上界判决</a>
       <a href="#breakthrough-watch">突破监测</a>
       <a href="#support-loro-result">LORO 正式结果</a>
@@ -1566,6 +1577,70 @@
           </details>
         </div>
         <!-- end public NIR-BOS release readiness audit -->
+        <!-- public NIR-BOS clean-room forward identity -->
+        <div id="open-nir-bos-forward-identity" class="panel" style="margin-top:12px; border-top:4px solid var(--gold); scroll-margin-top:18px;">
+          <div class="chips"><span class="chip coral">V0 NO-GO PRESERVED</span><span class="chip blue">V1 MACHINE GATES PASS</span><span class="chip gold">D0.5 AUTOGRAD GAP</span></div>
+          <h3 style="margin-top:8px;">公开 Phantom 的值重放链可运行，但还不能直接训练</h3>
+          <p>我们没有运行或复制作者 CUDA 代码，而是独立实现 16-bit PNG、相机 ray、ray--AABB、三维折射率梯度和 midpoint quadrature。v0 因 ROI 语义和积分收敛正式失败；看过失败后先冻结修复协议，再用相同 12 个视角与相同 6,144 条 ray 执行 v1。</p>
+          <div class="alert warning"><strong><code>D0_FORWARD_IDENTITY_PASS_<wbr>IMPLEMENTATION_<wbr>DIAGNOSTIC_ONLY</code></strong><span>这是保留的机器状态。冻结 PASS 没有使用 GT Pearson/L2；当前 NumPy/SciPy forward 也没有 autograd。人工结论降级为“post-open 值重放实现诊断”，训练前先过 D0.5。</span></div>
+          <div class="diagnostic-metric-grid four-up" style="margin-top:10px;">
+            <div class="metric"><b>6,144 / 6,144</b><span>12 views x 512 rays；ROI 外 ray 预测为零但仍留在总分母</span></div>
+            <div class="metric"><b>0.98814</b><span>GT 对公开 XYZ projection 的 post-open 平均 Pearson；不是冻结门</span></div>
+            <div class="metric"><b>0.14621</b><span>GT 经一个全局诊断尺度后的 relative-L2；不是 PASS 条件</span></div>
+            <div class="metric"><b>281 checks</b><span>独立重算充分统计与哈希；几何原始量未由验证器重新追光</span></div>
+          </div>
+          <div class="two-col" style="margin-top:12px; align-items:start;">
+            <figure style="margin:0;"><a href="learning_labs/results/open_nir_bos_d0_forward_identity_v1/forward_identity_audit.png" aria-label="打开公开 Phantom clean-room 正向算子审计图"><img src="learning_labs/results/open_nir_bos_d0_forward_identity_v1/forward_identity_audit.png" width="2736" height="1872" loading="lazy" decoding="async" alt="公开 Phantom clean-room 正向算子审计：ground truth、support-masked ground truth、发布 CGLS-TV 的逐视角相关和相对误差，以及几何与积分门" /></a><figcaption>这张图检查的是公开观测能否被同一个 clean-room 算子重放。它不是重建结果图，也不是新模型排行榜。</figcaption></figure>
+            <div>
+              <h3>v0 失败以后只改了可检验语义</h3>
+              <ol>
+                <li><strong>保留失败：</strong>v0 相交率 <code>0.97998</code>，CGLS 64 -> 128 差 <code>0.05260</code>，正式 NO-GO 不删除。</li>
+                <li><strong>冻结修复：</strong>ROI 外 ray 作为零场贡献；主积分 256 点，用 128 点比较，仍守 2% 门。</li>
+                <li><strong>v1 结果：</strong>128 -> 256 差 <code>0.00962</code>；ROI 外/内观测 RMS 比 <code>0.003834</code>；最小相机对齐 cosine <code>0.99441</code>。</li>
+                <li><strong>负结论：</strong>GT 的缩放误差比发布 CGLS-TV 低 <code>0.05766</code>，不支持“CGLS 吸收成像失配后更贴观测”的猜想。</li>
+              </ol>
+              <div class="alert info" style="margin-bottom:0;"><strong>突破监测：否</strong><span>新增的是值重放诊断和两个明确缺口，不是算法、训练、重建或论文突破。</span></div>
+            </div>
+          </div>
+          <div class="result-table-wrap" tabindex="0" aria-label="公开 Phantom 三种场的正向重放指标，窄屏可左右滑动" style="margin-top:12px;"><table>
+            <thead><tr><th>重放场</th><th>mean Pearson</th><th>全局尺度</th><th>scaled relative-L2</th><th>能说明什么</th></tr></thead>
+            <tbody>
+              <tr><td>ground truth</td><td class="positive">0.9881369</td><td>0.9489756</td><td class="positive">0.1462135</td><td>直线 ray 接线有强相关，但仍有成像链余差</td></tr>
+              <tr><td>support-masked GT</td><td>0.9881394</td><td>0.9484864</td><td>0.1461789</td><td>support mask 几乎不改变本轮全局结论</td></tr>
+              <tr><td>released CGLS-TV</td><td>0.9809594</td><td>1.0043039</td><td>0.2038715</td><td>可作发布基线，但没有优于 GT 重放</td></tr>
+            </tbody>
+          </table></div>
+          <div class="alert critical"><strong>D0.5 是下一道硬门</strong><span>先做 Torch/JAX 对 NumPy reference 的值一致性，再做有限差分方向导数和伴随/JVP/VJP 点积测试。任一失败就不训练；新 GT 接受门只能在独立 phantom 上事前冻结。</span></div>
+          <div class="alert info"><strong>当前机器授权：<code>training_authorized=false</code></strong><span>冻结 summary 的旧 next action 原样保留；事后审计覆盖层明确要求 <code>d0_5_required=true</code>。自动化和人工判断都应读取覆盖层，不能只摘旧 PASS。</span></div>
+          <div class="pipeline four-step" aria-label="公开 Phantom 从值重放到优化烟测的前置路线">
+            <div><b>D0.5 · value parity</b><span>同 field/ray/quadrature，Torch/JAX 对 NumPy reference。</span></div>
+            <div><b>G0 · gradient</b><span>有限差分 + adjoint/JVP/VJP；边界和 ROI 外 ray 都覆盖。</span></div>
+            <div><b>B1/B2 · smoke</b><span>voxel 与 Fourier MLP；只看优化、成本和失败模式。</span></div>
+            <div><b>H1 · bounded residual</b><span>B2 base；对 parameter-matched 与 call-matched B2。</span></div>
+          </div>
+          <div class="alert warning"><strong>下一轮仍不是方法排行榜</strong><span>CGLS-TV 是固定锚点，不能与训练臂强行匹配 optimizer step；正式排序前只冻结一个 primary resource budget，并完整报告 steps、ray calls、wall、参数与内存。独立 field/session 到位前不得写 superiority 或泛化。</span></div>
+          <div class="actions" style="margin-top:12px;">
+            <a class="button primary" href="document_reader.html?doc=docs%2Fopen_nir_bos_d0_forward_identity_result_2026-07-23.md">读完整结果与师兄六问</a>
+            <a class="button" href="learning_labs/results/open_nir_bos_d0_forward_identity_v1/summary.json">v1 机器摘要</a>
+            <a class="button" href="learning_labs/results/open_nir_bos_d0_forward_identity_v1_validation/validation.json">281 项验证记录</a>
+            <a class="button" href="docs/open_nir_bos_d0_forward_identity_v1_audit_overlay.json">机器审计覆盖层</a>
+            <a class="button" href="learning_labs/results/open_nir_bos_d0_forward_identity_v0/summary.json">保留的 v0 NO-GO</a>
+          </div>
+          <details class="archive-details">
+            <summary>展开冻结协议、充分统计、输入哈希与一级来源</summary>
+            <div class="actions" style="padding:0 14px 14px;">
+              <a class="button" href="document_reader.html?doc=docs%2Fopen_nir_bos_d0_forward_identity_repair_protocol_2026-07-23.md">v0 -> v1 修复协议</a>
+              <a class="button" href="learning_labs/open_nir_bos_d0_forward_identity_v1_protocol.json">v1 冻结机器合同</a>
+              <a class="button" href="learning_labs/results/open_nir_bos_d0_forward_identity_v1/sufficient_statistics.csv">充分统计量</a>
+              <a class="button" href="learning_labs/results/open_nir_bos_d0_forward_identity_v1/input_manifest.csv">18 项输入哈希</a>
+              <a class="button" href="learning_labs/results/open_nir_bos_d0_forward_identity_v1/checksums.sha256">结果 SHA-256</a>
+              <a class="button" href="document_reader.html?doc=docs%2Foperator_3d_learning_log.md&amp;anchor=184-先把一条光线接对才有资格训练网络">讲人话日志 184</a>
+              <a class="button" href="https://arxiv.org/html/2605.11454">一级来源论文</a>
+              <a class="button" href="https://github.com/Weihu22/Neural-Implicit-Reconstruction-for-BOS">作者仓库</a>
+            </div>
+          </details>
+        </div>
+        <!-- end public NIR-BOS clean-room forward identity -->
         <div class="two-col" style="margin-top:12px;">
           <div>
             <div class="alert info" style="margin-top:0;"><strong>论文稿回答什么</strong><span>LGWO-A24 是否在完全相同的 <code>24F/24Aᵀ</code> 外壳、相同数据和相同端到端成本下，优于 CGLS、简单阻尼/插值、learned warm-start、DCDM/FCG-NO-style 对照与直接 DeepONet/FNO/iFNO；任何优势还必须在未见 rig 尾部、A/B consistency、wall time 与内存上成立。</span></div>

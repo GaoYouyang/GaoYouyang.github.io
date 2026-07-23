@@ -5137,3 +5137,42 @@ runner 还额外冻结了 CPU 单线程、ray chunk 64、Adam 的 `foreach/fused
 这次最重要的进步不是“PASS 数从 43 变成 53”，而是允许独立审计推翻我们自己的过强结论，再用可复现反例修机制。这比多一个漂亮数字更接近可发表研究的做法。
 
 **突破监测：没有突破。新增的是一次被保留的证据失效、两个 blocker 和五个 major finding 的修复、以及新 v3 确定性 seal；runner、训练、三维重建、算子学习、泛化和论文结果仍为 0。**
+
+## 193. 开跑之前，先证明不会换模型、换光线或重复更新
+
+上一节 broker 已经把 fit/dev/audit 拆开，但还缺一条从模型到梯度再到 optimizer 的可追责链。如果只有一个可调用的 forward，运行时仍可能换了参数对象、改了学习率、把同一次梯度更新两次，或者保留相机/像素编号却替换真实射线坐标。
+
+现在三个参数化都必须通过同一个 `AuditedD05Projector`。VJP 完成时会绑定真正参与反传的参数名、对象和事件学习率；Adam 不能换一组同名对象，也不能临时改 LR。optimizer 已经改参数、但 `OPTIMIZER_COMMIT` 落盘失败时，该 run 会永久中毒；第二次调用不能再更新一次。
+
+射线也不再只锁 view/pixel ID。batch contract 现在同时锁 origins、directions、view IDs 和 flat pixel IDs 的数值内容哈希。回归测试专门伪造了“编号不变、光线起点改变”的 batch，注册表必须拒绝。但 broker 还没给正式 batch 签发这个 content hash，所以正式注册表当前会主动 fail closed，这是正确行为。
+
+定向测试是 `64 passed`。随后新建 v3：S0/S1/S2 各 3 个 seed，共 9 个独立子进程，每个只跑一对真实 D0.5 `FORWARD/VJP/Adam`，也就是 2/260 个事件。9/9 终止票据和 terminal package 复核通过，但终态故意是 `FAILED_SEALED`，audit unlock 仍为 false。独立证据验证器又复核 11 个源文件、9 个正式日程族、2 个复合批次和 v3 保存包，`failure_count=0`。
+
+这次 PASS 只说明一对机械链能干净地完成并干净地停止。正式 260-event trainer、4 个 LR 筛选、S1/S2 的 80 步 lockstep、S2 的 step-81 optimizer 重建、checkpoint 内容审计和科学评分都还没有。下一步不是把 2 事件粗暴扩成 260，而是先让何远哲师兄确认真实 callable、straight/curved residual 层级、JVP/VJP、坐标/单位、标定版本和认可的强基线。
+
+完整证据、五个入门概念和师兄问题见 [D0.6 runner v3 机械验证报告](open_nir_bos_d0_6_runner_v3_result_2026-07-23.md)。
+
+**突破监测：没有突破。新增的是参数、学习率、射线几何、VJP、optimizer 更新和失败票据的可证伪机械链；算法效果、重建、泛化和论文结果仍完全未知。**
+
+## 194. terminal 端点终于不再只看序号
+
+上一节的 v3 已经能证明“一对 forward/VJP/Adam 事件跑完并封存”，但第三轮独立审计问了一个很尖锐的问题：terminal 说自己停在第 5 个事件，系统到底只检查了数字 `5`，还是知道第 5 个事件应该是什么？
+
+旧 v7 的答案还不够好。它会检查 sequence 连续，却可能接受一个序号正确、内容荒唐的伪事件，例如把训练 step 写成 `999`。如果最后一页账本能这样伪造，那么“下一个事件是什么”也可能来自另一条学习率分支。另一个小问题是 batch identity 缺字段时会漏出原始 `KeyError`，而不是给出稳定、可审计的合同错误。
+
+v9 给 9 个 `arm x seed`、每个 4 条学习率分支、每分支 260 个事件建立了精确索引。索引不只保存序号，还保存事件类型、阶段、step、batch、学习率和事件哈希。terminal 的最后事件与下一事件必须逐字段命中同一条分支，不能把一个 LR 的末尾接到另一个 LR 的开头。坏 identity、越过 260 的序号、任意 checkpoint LR、缺失或被改写的 manifest 都会稳定失败。
+
+独立复查随后又找出三个实现缝隙：写状态前没有每次重读 manifest；checkpoint LR 只要求大于零，没有要求属于冻结四候选；超出 260 的 sequence 会泄漏 `IndexError`。三处都修完后重新复查，定向问题全部关闭。v8 其实已经补上核心端点绑定，但 manifest 被改时命令行仍打印 traceback，而不是规范的 `FAIL` JSON，所以 v8 保留为历史，重新生成 v9。
+
+当前机器证据是 `103 passed`、16 个合同字段、9/9 个合成 worker、每个 2/260 个事件，终态仍是 `FAILED_SEALED`。这句话容易被误读，所以拆开说：
+
+- `FAILED_SEALED` 不是模型效果失败，而是本轮故意不创建 checkpoint、不开放 audit，并把“尚未训练”封存成不可冒充成功的终态。
+- “端点属于冻结 schedule”不等于“前面 1 到 N 的全部日志都由 state 层独立重放”。当前 prefix hash 仍来自 worker receipt；完整 journal snapshot 与逐事件重放是下一道门。
+- Python 内的私有属性和 capability 是防误用的正确性保护，不是安全沙箱，也没有外部签名、跨进程锁或第三方透明日志。
+- 合成射线内容已经绑定；正式实验射线还缺 broker 签发的 geometry content hash，所以真实 batch 会主动拒绝 seal。
+
+现在最值钱的下一步不是盲目把 2 个事件扩成 260 个，而是拿到何远哲师兄的 tiny 真实 callable：确认 straight/curved forward 的层级、JVP/VJP、坐标单位、几何标定、当前强基线和最痛的物理失配。拿到这些后，先在真实 fixture 上重做一对事件，再补可重放 journal、四 LR reset、S1/S2 前 80 步 lockstep、S2 step-81 optimizer 重建和 checkpoint 内容审计。
+
+完整审计演化、证据上限和需要问师兄的问题见 [D0.6 runner v9 机械验证报告](open_nir_bos_d0_6_runner_v9_result_2026-07-23.md)。
+
+**突破监测：没有突破。新增的是 terminal 端点与冻结日程逐字段绑定，以及审计发现后修复的三处状态机缝隙；formal trainer、重建指标、算法优势、算子泛化、真实 OERF 和论文结果仍为 0。**

@@ -220,6 +220,7 @@
       <a href="#rig-session-calibration">rig/session 校准与漂移门</a>
       <a href="#open-nir-bos-readiness">公开 NIR-BOS 复现门</a>
       <a href="#open-nir-bos-forward-identity">可微 forward / D0.6</a>
+      <a href="#open-nir-bos-d0-6-runner">D0.6 v9 精确端点封存</a>
       <a href="#gct-kmix-o1">GCT-KMix 上界判决</a>
       <a href="#breakthrough-watch">突破监测</a>
       <a href="#support-loro-result">LORO 正式结果</a>
@@ -1579,8 +1580,8 @@
         <!-- end public NIR-BOS release readiness audit -->
         <!-- public NIR-BOS clean-room forward identity -->
         <div id="open-nir-bos-forward-identity" class="panel" style="margin-top:12px; border-top:4px solid var(--gold); scroll-margin-top:18px;">
-          <div class="chips"><span class="chip coral">D0 V0 NO-GO PRESERVED</span><span class="chip blue">D0.5 CPU + PUBLIC VALUE PASS</span><span class="chip gold">MPS SYNTHETIC COMPATIBILITY PASS</span><span class="chip blue">M0 PUBLIC FIELD PASS</span><span class="chip gold">D0.6 DESIGN 136 / 136</span><span class="chip blue">D0.6 BROKER 43 / 43</span></div>
-          <h3 style="margin-top:8px;">公开 Phantom 的值与场梯度链已接通；D0.6 考场通过预检，但训练仍关闭</h3>
+          <div class="chips"><span class="chip coral">D0 V0 NO-GO PRESERVED</span><span class="chip blue">D0.5 CPU + PUBLIC VALUE PASS</span><span class="chip gold">MPS SYNTHETIC COMPATIBILITY PASS</span><span class="chip blue">M0 PUBLIC FIELD PASS</span><span class="chip gold">D0.6 DESIGN 136 / 136</span><span class="chip blue">D0.6 BROKER 53 / 53</span><span class="chip blue">RUNNER PRIMITIVES DRY-RUN PASS</span></div>
+          <h3 style="margin-top:8px;">公开 Phantom 的值与场梯度链已接通；D0.6 机械链通过一对事件验证，但正式训练仍关闭</h3>
           <p>我们没有运行或复制作者 CUDA 代码。D0 先独立实现 16-bit PNG、相机 ray、ray--AABB、三维折射率梯度和 midpoint quadrature；v0 正式失败，冻结修复后 v1 通过值重放。D0.5 再用 clean-room PyTorch 显式复刻同一数值语义，并在看到结果前锁定 CPU64、MPS32、有限差分、JVP/VJP 与 ROI 外零梯度门。</p>
           <div class="alert success"><strong><code>D0_5_DIFFERENTIABLE_<wbr>FORWARD_PASS_<wbr>IMPLEMENTATION_ONLY</code></strong><span>CPU 主门与公开 768-ray 值重放通过；MPS 只通过小型合成兼容矩阵。证据包一致性与异构复跑 88 / 88，但它共享被审实现，不是第二套独立物理复现。</span></div>
           <div class="diagnostic-metric-grid four-up" style="margin-top:10px;">
@@ -1699,8 +1700,9 @@
                 <h3>为什么还不能训练</h3>
                 <ol>
                   <li><strong>broker 后续已经审计修复：</strong>本段记录冻结协议时的状态；下方 v2 证据补了 worker 内部负测、stdin/FD 封闭、断网与 deterministic private seal。</li>
-                  <li><strong>runner 未实现：</strong>尚无参数梯度、prefix trace、预算 ledger 和失败包执行器。</li>
-                  <li><strong>dry-run 未通过：</strong>136 项只读 preflight 没有调用 forward 或 optimizer。</li>
+                  <li><strong>runner primitives 已实现：</strong>下方 v9 已有三模型、可审投影、事件 ledger、VJP/Adam 绑定、精确 schedule endpoint 索引和 failure tombstone；但每个 worker 仍只跑了第一对事件。</li>
+                  <li><strong>formal trainer 未实现：</strong>完整 260-event loop、4 个 LR 筛选、S1/S2 80 步 lockstep、S2 step-81 optimizer 重建和 checkpoint 内容审计仍为 0。</li>
+                  <li><strong>正式 geometry 还缺签名：</strong>当前身份 metadata 没有 broker 签发的 ray-content hash，正式 batch registry 会主动拒绝 seal。</li>
                   <li><strong>单 opened field：</strong>即使未来 S2 过门，也只准进入 fresh 多场/跨几何验证，不构成算子泛化。</li>
                 </ol>
               </div>
@@ -1709,7 +1711,7 @@
               <div><b>v1.0 · 已保留</b><span>第一版 commit 01ce64d；审计发现 LR fit-union forward 漏账。</span></div>
               <div><b>v1.1 · 136 / 136</b><span>修预算与语义；publish-safe v2 又移除本机绝对路径。</span></div>
               <div><b>broker · 审计后完成</b><span>14-file capability、worker 内部负测、stdin/FD 封闭、atomic seal 与 byte-identical repeat。</span></div>
-              <div><b>正式执行 · 仍关闭</b><span>提交实现并通过 no-result dry-run 后，才另开训练授权。</span></div>
+              <div><b>runner v9 · 窄机械门通过</b><span>9 个 worker 各完成 2/260 事件；terminal 端点精确属于冻结 schedule，full-prefix replay 与训练授权仍关闭。</span></div>
             </div>
             <div class="alert warning"><strong><code>frozen_design_consistent=true</code> 不是模型成功</strong><span>原 v1.1 协议的执行 flags 仍保持历史 false；新 execution overlay 只把 <code>split_broker_implementation=true</code> 和 <code>broker_data_plane_mechanical_run=true</code> 打开。<code>runner_implemented=false</code>、<code>formal_training_authorized=false</code>、<code>training_executed=false</code>，其余科学主张仍全部关闭。</span></div>
             <div class="actions" style="margin-top:12px;">
@@ -1724,9 +1726,9 @@
             <div class="alert info" style="margin-bottom:0;"><strong>突破监测：否</strong><span>这次真实增量是训练前抓住预算漏洞并完成 136 / 136 设计预检；没有 checkpoint、重建指标、算法优势或论文结果。</span></div>
           </div>
           <div id="open-nir-bos-d0-6-broker" style="margin-top:16px; padding-top:16px; border-top:1px solid var(--line); scroll-margin-top:18px;">
-            <div class="chips"><span class="chip blue">AUDIT-REPAIRED PASS</span><span class="chip blue">53 / 53 VALIDATION</span><span class="chip gold">BYTE-IDENTICAL REPEAT</span><span class="chip coral">RUNNER CLOSED</span><span class="chip coral">NO BREAKTHROUGH</span></div>
+            <div class="chips"><span class="chip blue">AUDIT-REPAIRED PASS</span><span class="chip blue">53 / 53 VALIDATION</span><span class="chip gold">BYTE-IDENTICAL REPEAT</span><span class="chip coral">FORMAL TRAINER CLOSED</span><span class="chip coral">NO BREAKTHROUGH</span></div>
             <h3 style="margin-top:8px;">审计找到了门缝；修复后用新证据重新封存</h3>
-            <p>审计前版本的拆分结果确定，但 worker 可直接自报 PASS，而且禁止文件可能从 stdin 继承，所以旧的 OS 隔离声明不再作为当前证据。commit <code>0705adbe</code> 让官方 Seatbelt worker 在自身进程内实测获准读取、禁止 GT 读取和断网，并把 stdin 固定为 <code>/dev/null</code>、盘点额外 FD 为 0。新 v3 运行确定性生成 fit/dev/audit 私有 shard，但仍未启动 optimizer、读 GT 或计算重建指标。</p>
+            <p>审计前版本的拆分结果确定，但 worker 可直接自报 PASS，而且禁止文件可能从 stdin 继承，所以旧的 OS 隔离声明不再作为当前证据。commit <code>0705adbe</code> 让官方 Seatbelt worker 在自身进程内实测获准读取、禁止 GT 读取和断网，并把 stdin 固定为 <code>/dev/null</code>、盘点额外 FD 为 0。新 broker-seal v3 确定性生成 fit/dev/audit 私有 shard，但仍未启动 optimizer、读 GT 或计算重建指标。</p>
             <div class="diagnostic-metric-grid four-up" style="margin-top:10px;">
               <div class="metric"><b>14</b><span>官方 stage worker 在 release root 内允许的冻结内容输入；不代表父进程整个文件系统只可读 14 项</span></div>
               <div class="metric"><b>4,800 / 672 / 672</b><span>fit / dev / audit rays；身份交集为 0，并集严格为 6,144</span></div>
@@ -1748,7 +1750,7 @@
                 <ol>
                   <li><strong>不是完整 mount namespace：</strong>当前证明的是受控 worker 对指定数据根和网络的 OS 拒绝，不是管理员不可访问。</li>
                   <li><strong>不是 fresh blind：</strong>这个 Phantom 已公开且已开封，不能证明研究者本人没见过数据。</li>
-                  <li><strong>runner 还没写完：</strong>模型、AuditedD05Projector、260-event ledger 和失败 tombstone 尚未实现。</li>
+                  <li><strong>formal runner 还没写完：</strong>模型、AuditedD05Projector、260-event ledger 原语和失败 tombstone 已有；完整 trainer loop、checkpoint 内容审计与正式 ray-content 签名仍未实现。</li>
                   <li><strong>没有模型结果：</strong>三个 shard 的私有值没有上线，也没有任何 loss、重建或排行榜。</li>
                 </ol>
               </div>
@@ -1767,8 +1769,8 @@
             <div class="pipeline four-step" aria-label="D0.6 broker 到训练的真实门控路线">
               <div><b>Broker · 审计后完成</b><span>worker 内部 read/network 负测、stdin/FD 封闭、RENAME_EXCL 与 strict-root verifier。</span></div>
               <div><b>Semantics · 已冻结</b><span>所有 P90/P95 用 linear；九个 terminal receipts 可为 checkpoint 或 failure tombstone。</span></div>
-              <div><b>Runner · 当前施工</b><span>三模型、AuditedD05Projector、260-event ledger、S1/S2 lockstep 与失败保存。</span></div>
-              <div><b>训练 · 仍关闭</b><span>synthetic full dry-run 和独立审计通过后，才讨论单 opened field 正式筛选。</span></div>
+              <div><b>Runner v9 · 三轮审计后封存</b><span>三模型、可审投影、model/Adam 连续性、合成 geometry 与 schedule endpoint 精确绑定已通过一对事件验证。</span></div>
+              <div><b>训练 · 仍关闭</b><span>真实接口合同、正式 ray-content hash、260-event trainer 和 checkpoint audit 到位后才讨论筛选。</span></div>
             </div>
             <div class="two-col" style="margin-top:12px; align-items:start;">
               <div class="alert info" style="margin:0;"><strong>统一 quantile</strong><span><code>q=P95(|e*base|)</code>、correction p90、Hausdorff95 和 view p90 全部固定为 <code>numpy.quantile(..., method="linear")</code>，结果以 float64 hex 封存。</span></div>
@@ -1783,6 +1785,63 @@
               <a class="button" href="document_reader.html?doc=docs%2Foperator_3d_learning_log.md&amp;anchor=192-审计说门还有缝所以重锁一次">讲人话日志 192</a>
             </div>
             <div class="alert info" style="margin-bottom:0;"><strong>突破监测：否</strong><span>真实进展是 broker 数据平面、OS 路径/网络阻断、重复封存和 runner 语义修复；不是三维重建、算法优势、算子学习、跨场泛化或论文突破。</span></div>
+          </div>
+          <div id="open-nir-bos-d0-6-runner" style="margin-top:16px; padding-top:16px; border-top:1px solid var(--line); scroll-margin-top:18px;">
+            <div class="chips"><span class="chip blue">V9 RUNNER PRIMITIVES DRY-RUN PASS</span><span class="chip blue">103 TESTS</span><span class="chip blue">16 CONTRACT FIELDS</span><span class="chip gold">9 / 9 SYNTHETIC WORKERS</span><span class="chip coral">2 / 260 EVENTS ONLY</span><span class="chip coral">FAILED_SEALED</span></div>
+            <h3 style="margin-top:8px;">先证明一对机械事件的状态和日程端点可复核；模型效果仍完全未知</h3>
+            <p>v3-v7 先后暴露旧梯度、model/Adam 连续性、合同字段、日志集合和 lifecycle barrier 缺口。第三轮审计又发现 terminal 只绑序号，<code>step=999</code> 等伪事件仍可封存。v9 将 9 个 arm/seed、4 个 LR 分支、每分支 260 个事件建成冻结索引；last/next endpoint 必须逐字段命中，且不得跨 LR 分支。这仍只是 endpoint membership，不是完整 journal prefix 的独立重放证明。</p>
+            <div class="alert success"><strong><code>RUNNER_PRIMITIVES_<wbr>V9_DRY_RUN_PASS_<wbr>ENDPOINT_BOUND_<wbr>FORMAL_TRAINER_<wbr>UNIMPLEMENTED</code></strong><span>3 arms x 3 seeds 的 9 个独立子进程各完成一对 D0.5 <code>FORWARD/VJP/Adam</code>。终端包、schedule manifest 和保存包复核通过，但终态故意保持 <code>FAILED_SEALED</code>，audit unlock 为 false，没有 checkpoint、重建指标或模型排序。</span></div>
+            <div class="diagnostic-metric-grid four-up" style="margin-top:10px;">
+              <div class="metric"><b>103 passed</b><span>D0.5、runner、state；含 endpoint 逐字段篡改、跨 LR、manifest 与 Adam 双写失败负测</span></div>
+              <div class="metric"><b>9 x 2 events</b><span>每个 worker 只做第一对事件；完整正式日程是每个 260</span></div>
+              <div class="metric"><b>11 + 9 + 2 + 16</b><span>复核源文件、正式日程族、复合批次与合同字段，failure_count=0</span></div>
+              <div class="metric failed-state"><b>0 scientific scores</b><span>formal training、audit、GT、checkpoint、reconstruction 和 generalization 全为 false</span></div>
+            </div>
+            <div class="two-col" style="margin-top:12px; align-items:start;">
+              <div>
+                <h3>初学者先学懂六件事</h3>
+                <ol>
+                  <li><strong>Forward / VJP / Adam：</strong>预测、反传和参数更新是三个不同生命周期，调用与成本都要分别记账。</li>
+                  <li><strong>同预算比较：</strong>参数量相近还不够，正式结果还要对齐 ray、积分点、A/Aᵀ 调用、wall time 与内存。</li>
+                  <li><strong>身份不等于几何：</strong>view/pixel ID 之外，还要冻结 rays 的 origin、direction、单位和标定版本。</li>
+                  <li><strong>Endpoint 不是 history：</strong>最后/下一事件命中冻结 schedule，不等于 1…N 全部事件已由 state 层重放。</li>
+                  <li><strong>失败封存：</strong><code>FAILED_SEALED</code> 表示失败可复核且 audit 未泄漏，不表示模型失败或成功。</li>
+                  <li><strong>证据分级：</strong>软件机械门通过以后，才有资格谈 field、front、逐 rig 尾部和强基线。</li>
+                </ol>
+              </div>
+              <div>
+                <h3>还缺的三道门</h3>
+                <ol>
+                  <li><strong>真实接口：</strong>师兄确认 callable、straight/curved 层级、JVP/VJP、坐标单位与主要痛点。</li>
+                  <li><strong>正式执行：</strong>broker 签发 ray-content hash；封存可重放 journal snapshot；实现 260 事件 trainer、LR 筛选、lockstep 与 checkpoint audit。</li>
+                  <li><strong>科学评价：</strong>多独立场/跨 geometry、CGLS/H1/TV 与 neural-operator 强基线、逐 rig/session 尾部和独立复核。</li>
+                </ol>
+                <div class="alert warning" style="margin-bottom:0;"><strong>当前正确动作</strong><span>先拿 tiny 真实 callable fixture 和 geometry 合同做一对事件机械测试；不要把 2/260 直接扩写成训练胜利。</span></div>
+              </div>
+            </div>
+            <div class="pipeline four-step" aria-label="D0.6 runner 从机械链到科学结果的真实路线">
+              <div><b>v9 · 已完成</b><span>模型/Adam state、梯度、合成 ray content、worker journal 与 terminal endpoint 的一对事件验证。</span></div>
+              <div><b>接口门 · 等师兄确认</b><span>真实 callable、geometry、straight/curved residual、JVP/VJP 和强基线。</span></div>
+              <div><b>formal trainer · 未实现</b><span>每 arm/seed 260 事件、四 LR、S1/S2 lockstep、S2 step-81 和 checkpoint audit。</span></div>
+              <div><b>科学门 · 未授权</b><span>field/front、逐 rig 尾部、跨场/跨几何与端到端成本都必须另取证。</span></div>
+            </div>
+            <div class="actions" style="margin-top:12px;">
+              <a class="button primary" href="document_reader.html?doc=docs%2Fopen_nir_bos_d0_6_runner_v9_result_2026-07-23.md">读 v9 审计演化与师兄问题</a>
+              <a class="button" href="learning_labs/open_nir_bos_d0_6_runner_evidence_contract.json">证据边界合同</a>
+              <a class="button" href="learning_labs/results/open_nir_bos_d0_6_runner_evidence_v5/verification.json">现场证据验证（非 clean-room）</a>
+              <a class="button" href="learning_labs/results/open_nir_bos_d0_6_synthetic_dry_run_v9/synthetic-no-result-v9/synthetic_dry_run_verification.json">v9 保存包复核</a>
+              <a class="button" href="learning_labs/results/open_nir_bos_d0_6_synthetic_dry_run_v9/synthetic-no-result-v9/terminals/terminal_bundle_manifest.json">九票终端汇总</a>
+              <a class="button" href="learning_labs/results/open_nir_bos_d0_6_synthetic_dry_run_v9/synthetic-no-result-v9/schedule_event_manifest.json">9 组精确 schedule endpoint 索引</a>
+              <a class="button" href="learning_labs/results/open_nir_bos_d0_6_synthetic_dry_run_v9/synthetic-no-result-v9/state/000_CREATED.json">状态 0 · created</a>
+              <a class="button" href="learning_labs/results/open_nir_bos_d0_6_synthetic_dry_run_v9/synthetic-no-result-v9/state/001_SOURCE_LOCKED.json">状态 1 · source locked</a>
+              <a class="button" href="learning_labs/results/open_nir_bos_d0_6_synthetic_dry_run_v9/synthetic-no-result-v9/state/002_BROKER_SEALED.json">状态 2 · broker sealed</a>
+              <a class="button" href="learning_labs/results/open_nir_bos_d0_6_synthetic_dry_run_v9/synthetic-no-result-v9/state/003_FAILED_SEALED.json">状态 3 · failed sealed</a>
+              <a class="button" href="document_reader.html?doc=docs%2Fn5_d5_advisor_first_contact_2026-07-19.md">师兄真实接口确认单</a>
+              <a class="button" href="document_reader.html?doc=he_yuanzhe_minimum_data_contract.md">最小数据合同</a>
+              <a class="button" href="document_reader.html?doc=docs%2Foperator_3d_learning_log.md&amp;anchor=194-terminal-端点终于不再只看序号">讲人话日志 194</a>
+            </div>
+            <div class="alert warning" style="margin-bottom:10px;"><strong>证据边界</strong><span>当前 validator 是磁盘重放、哈希与字段复算，并复跑 pytest/Ruff；它复用 runtime journal/terminal 审计实现，不是 clean-room 独立语义实现。Python capability 不是 sandbox；terminal state 只证 endpoint membership，尚未重放完整 prefix。公开页只放去 PID 白名单，完整 worker 包留在私有源码仓库。</span></div>
+            <div class="alert info" style="margin-bottom:0;"><strong>突破监测：否</strong><span>真实增量是旧结论可被推翻、合同逐字段可复核的运行机械链；formal trainer、重建、算法优势、算子泛化与论文结果仍为 0。</span></div>
           </div>
           <details class="archive-details">
             <summary>D0.5 当时的路线规划（M0 已完成，留作历史）</summary>

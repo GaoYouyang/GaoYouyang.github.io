@@ -5093,3 +5093,47 @@ audit 泄漏也从一句话变成四角色合同：broker 才能看 14 个原始
 重新生成的 publish-safe v2 仍是 136/136，validation SHA 为 `9693b18c...2450c`，三项 source-binding 与验证器 SHA 都指向 `1f0136c`。全文搜索确认不含 `/Users/`、用户名、VPN 账号、密码或本地绝对路径。接下来 Pages 构建必须从包含 v2 的干净 HEAD 重做，manifest commit 对不上就不得部署。
 
 **突破监测：没有突破。新增的是一次被保留的发布隐私失败和一个可公开的 136/136 v2；训练、重建、算子学习、泛化、真实 OERF、算法优势和论文成功仍为 0。**
+
+## 190. 门真的锁上了，但模型一行都还没训练
+
+上一轮只是把“TRAINER 不能看 audit 和真值”写进协议。这一轮第一次把这句话变成真实进程限制。split broker 分两个角色：stage 只能读取冻结的 transforms、mask 和 12 张观测图，共 14 个文件；seal 只能读 stage 生成的最小 capability tree，整个外部 release 对它都是禁止读取的。两个角色也都不能联网。
+
+第一次真实 stage 没有过。原因不是输入 hash，而是 Seatbelt 规则太严：连路径元数据也被禁止，worker 在做 canonical path 时就收到系统拒绝。这个失败发生在任何 shard 创建之前。我们没有关掉沙箱，而是把权限改细：目录和文件元数据可以读，文件内容仍默认拒绝，只为 14 个精确路径开放。随后又加了真实网络负向探针，只有文件和网络两种阻断都成立，worker 才能启动。
+
+成功的 v2 从同一个公开 Phantom 生成 4,800 条 fit、672 条 dev 和 672 条 audit。每个条目带 view id、flat pixel id、三分量 observation、ray origin/direction 和相机中心对齐量。三组身份没有交集，并集严格等于冻结的 6,144 条 rays。audit NPZ 与 fit/dev 物理分开，三个文件都只在本机 `private_library`，网页只公开 count 和 hash。
+
+为了检查“同样的数据是不是每次真的写成同样的字节”，seal 又独立跑了一次。fit、dev、audit 三个 SHA-256 分别稳定为 `bced0252...4c895`、`e8ecfd3a...3520d` 和 `506583d6...524b`，全部 byte-identical。文件先 fsync，目录再 fsync，最后一次原子 rename；目标目录存在就失败，不能覆盖第一次不利结果。
+
+公开验证器把源码 commit、协议、输入身份、私有 manifests、两次 shard hash、Seatbelt 负测、断网和 claim closure 重新串起来，43/43 通过。这里的 PASS 只属于 broker：optimizer steps 是 0，checkpoint 是 0，field/reprojection metric 都没有计算。
+
+**突破监测：没有突破。新增的是一个真实、可重复、会在越权时停止的数据隔离层；模型、runner、三维重建、算子学习、泛化、算法优势和论文成功仍为 0。**
+
+## 191. 审计又拦住了“马上训练”：两个词没定义清楚
+
+broker 通过以后，最诱人的动作是直接开三条 arm。但独立审计在 runner 开写前又找到两个会改变判决的歧义。
+
+第一个是 quantile。旧协议明确 view p90 用 NumPy `linear`，却没有说 `q=P95(|e*base|)`、S2 correction p90 和 front Hausdorff95 用哪种插值。样本数量有限时，`linear`、`nearest` 或 Torch 默认实现会给出不同的 rho 和门槛值。现在统一冻结为 `numpy.quantile(..., method="linear")`，输入必须有限，结果用 float64 hex 保存。
+
+第二个是“九个 checkpoint”。旧文字要求九个 checkpoint 都封存后才开 audit，但 G0 又允许某个 arm 无效后 fallback。失败的 arm 可能没有 checkpoint，这两条规则同时满足不了。现在改成九个不可变 terminal receipts：每个 arm × seed 要么有 `SEALED_CHECKPOINT`，要么有 `SEALED_FAILURE_TOMBSTONE`。失败 tombstone 保存失败码、最后事件、下一个预期事件、账本前缀和源码/协议 hash；一旦封存，不能后来用重跑 checkpoint 替换。
+
+runner 还额外冻结了 CPU 单线程、ray chunk 64、Adam 的 `foreach/fused/amsgrad` 等实现 flags、S2 residual 使用 selected LR、第 81 步必须新建空 Adam，以及每个成功 arm/seed 恰好 260 个预算事件。S1/S2 必须是两个真实模型和两个真实 optimizer 锁步运行，不能只跑一次后复制一份漂亮 trace。
+
+17 项定向与 mutation 测试已经通过，但这只证明新 overlay 自洽。下一步才是实现三种参数化、AuditedD05Projector、expected-event ledger、step-81 receipt 和失败注入 dry-run。正式训练继续为 false。
+
+**突破监测：没有突破。新增的是在训练前消除 quantile 和失败开封矛盾，并把 runner 的可证伪规则锁死；算法效果仍完全未知。**
+
+## 192. 审计说门还有缝，所以重锁一次
+
+上一节说 broker 43/43，但独立审计没有被这个数字说服。它发现了两个真问题：隐藏 worker 可以不经过 Seatbelt launcher 直接调用，而且 `close_fds=True` 不会关闭 fd 0。如果有人先打开禁止文件，再把它当作 stdin 交给 worker，旧代码仍可读到内容。
+
+这不能反推上一次已经偷读了 GT，但它说明“只能读 14 个文件”的声明超过了当时的证据。我们没有把审计意见改成一句小字，而是暂停部署，保留旧 attestation，然后修底层机制。
+
+现在 worker 必须亲自试读一个获准文件和一个禁止 GT 文件，并亲自试网络。只有禁止读取和网络都返回系统权限拒绝时才能继续。launcher 把 stdin 固定为 `/dev/null`；worker 在读任何数据前盘点 fd 3 以上的描述符，发现一个就失败。把禁止文件当 stdin 的原始反例现在会在入口被拦住。
+
+审计还找到了三个工程缝隙。目录级 `os.replace` 会替换一个已有空目录，所以改成 macOS `renamex_np(RENAME_EXCL)`；private verifier 以前会忽略额外子目录，现在要求完整节点集精确相等；输入路径以前只拒绝最后一层 symlink，现在每个中间组件都要检查。
+
+修复提交是 `0705adbe`，13 个定向测试通过。然后没有复用旧目录，而是建立新 v3 stage，再独立 seal 两次。fit/dev/audit 仍是 4,800/672/672，三个 shard 的 hash 与两次间都逐字节相同。新证据记录 stdin 为 `/dev/null`、额外继承 FD 为 0，而 optimizer 步数仍为 0。
+
+这次最重要的进步不是“PASS 数从 43 变成 53”，而是允许独立审计推翻我们自己的过强结论，再用可复现反例修机制。这比多一个漂亮数字更接近可发表研究的做法。
+
+**突破监测：没有突破。新增的是一次被保留的证据失效、两个 blocker 和五个 major finding 的修复、以及新 v3 确定性 seal；runner、训练、三维重建、算子学习、泛化和论文结果仍为 0。**

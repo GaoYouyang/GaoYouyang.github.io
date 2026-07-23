@@ -1579,7 +1579,7 @@
         <!-- end public NIR-BOS release readiness audit -->
         <!-- public NIR-BOS clean-room forward identity -->
         <div id="open-nir-bos-forward-identity" class="panel" style="margin-top:12px; border-top:4px solid var(--gold); scroll-margin-top:18px;">
-          <div class="chips"><span class="chip coral">D0 V0 NO-GO PRESERVED</span><span class="chip blue">D0.5 CPU + PUBLIC VALUE PASS</span><span class="chip gold">MPS SYNTHETIC COMPATIBILITY PASS</span><span class="chip blue">M0 PUBLIC FIELD PASS</span><span class="chip gold">D0.6 DESIGN PREFLIGHT 136 / 136</span></div>
+          <div class="chips"><span class="chip coral">D0 V0 NO-GO PRESERVED</span><span class="chip blue">D0.5 CPU + PUBLIC VALUE PASS</span><span class="chip gold">MPS SYNTHETIC COMPATIBILITY PASS</span><span class="chip blue">M0 PUBLIC FIELD PASS</span><span class="chip gold">D0.6 DESIGN 136 / 136</span><span class="chip blue">D0.6 BROKER 43 / 43</span></div>
           <h3 style="margin-top:8px;">公开 Phantom 的值与场梯度链已接通；D0.6 考场通过预检，但训练仍关闭</h3>
           <p>我们没有运行或复制作者 CUDA 代码。D0 先独立实现 16-bit PNG、相机 ray、ray--AABB、三维折射率梯度和 midpoint quadrature；v0 正式失败，冻结修复后 v1 通过值重放。D0.5 再用 clean-room PyTorch 显式复刻同一数值语义，并在看到结果前锁定 CPU64、MPS32、有限差分、JVP/VJP 与 ROI 外零梯度门。</p>
           <div class="alert success"><strong><code>D0_5_DIFFERENTIABLE_<wbr>FORWARD_PASS_<wbr>IMPLEMENTATION_ONLY</code></strong><span>CPU 主门与公开 768-ray 值重放通过；MPS 只通过小型合成兼容矩阵。证据包一致性与异构复跑 88 / 88，但它共享被审实现，不是第二套独立物理复现。</span></div>
@@ -1698,7 +1698,7 @@
               <div>
                 <h3>为什么还不能训练</h3>
                 <ol>
-                  <li><strong>broker 未实现：</strong>现在只有四角色访问合同，还没有真实 mount 隔离与越权负测。</li>
+                  <li><strong>broker 后续已经审计修复：</strong>本段记录冻结协议时的状态；下方 v2 证据补了 worker 内部负测、stdin/FD 封闭、断网与 deterministic private seal。</li>
                   <li><strong>runner 未实现：</strong>尚无参数梯度、prefix trace、预算 ledger 和失败包执行器。</li>
                   <li><strong>dry-run 未通过：</strong>136 项只读 preflight 没有调用 forward 或 optimizer。</li>
                   <li><strong>单 opened field：</strong>即使未来 S2 过门，也只准进入 fresh 多场/跨几何验证，不构成算子泛化。</li>
@@ -1708,10 +1708,10 @@
             <div class="pipeline four-step" aria-label="D0.6 从冻结协议到正式筛选的门控路线">
               <div><b>v1.0 · 已保留</b><span>第一版 commit 01ce64d；审计发现 LR fit-union forward 漏账。</span></div>
               <div><b>v1.1 · 136 / 136</b><span>修预算与语义；publish-safe v2 又移除本机绝对路径。</span></div>
-              <div><b>实现门 · 下一步</b><span>split broker、角色负测、runner、参数梯度与 budget ledger。</span></div>
+              <div><b>broker · 审计后完成</b><span>14-file capability、worker 内部负测、stdin/FD 封闭、atomic seal 与 byte-identical repeat。</span></div>
               <div><b>正式执行 · 仍关闭</b><span>提交实现并通过 no-result dry-run 后，才另开训练授权。</span></div>
             </div>
-            <div class="alert warning"><strong><code>frozen_design_consistent=true</code> 不是模型成功</strong><span><code>split_broker_implemented=false</code>、<code>runner_implemented=false</code>、<code>formal_training_authorized=false</code>、<code>training_executed=false</code>。重建、operator learning、跨 field/geometry、真实 OERF、优于 DeepONet/FNO/NeRIF/NIRP、论文成功和突破也全部为 false。</span></div>
+            <div class="alert warning"><strong><code>frozen_design_consistent=true</code> 不是模型成功</strong><span>原 v1.1 协议的执行 flags 仍保持历史 false；新 execution overlay 只把 <code>split_broker_implementation=true</code> 和 <code>broker_data_plane_mechanical_run=true</code> 打开。<code>runner_implemented=false</code>、<code>formal_training_authorized=false</code>、<code>training_executed=false</code>，其余科学主张仍全部关闭。</span></div>
             <div class="actions" style="margin-top:12px;">
               <a class="button primary" href="document_reader.html?doc=docs%2Fopen_nir_bos_d0_6_preflight_result_2026-07-23.md">读 D0.6 预检结果</a>
               <a class="button" href="document_reader.html?doc=docs%2Fopen_nir_bos_d0_6_matched_budget_design_2026-07-23.md">读完整冻结设计</a>
@@ -1722,6 +1722,67 @@
               <a class="button" href="document_reader.html?doc=docs%2Foperator_3d_learning_log.md&amp;anchor=188-审计真的抓到了漏账所以先修考场不急着开跑">讲人话日志 188</a>
             </div>
             <div class="alert info" style="margin-bottom:0;"><strong>突破监测：否</strong><span>这次真实增量是训练前抓住预算漏洞并完成 136 / 136 设计预检；没有 checkpoint、重建指标、算法优势或论文结果。</span></div>
+          </div>
+          <div id="open-nir-bos-d0-6-broker" style="margin-top:16px; padding-top:16px; border-top:1px solid var(--line); scroll-margin-top:18px;">
+            <div class="chips"><span class="chip blue">AUDIT-REPAIRED PASS</span><span class="chip blue">53 / 53 VALIDATION</span><span class="chip gold">BYTE-IDENTICAL REPEAT</span><span class="chip coral">RUNNER CLOSED</span><span class="chip coral">NO BREAKTHROUGH</span></div>
+            <h3 style="margin-top:8px;">审计找到了门缝；修复后用新证据重新封存</h3>
+            <p>审计前版本的拆分结果确定，但 worker 可直接自报 PASS，而且禁止文件可能从 stdin 继承，所以旧的 OS 隔离声明不再作为当前证据。commit <code>0705adbe</code> 让官方 Seatbelt worker 在自身进程内实测获准读取、禁止 GT 读取和断网，并把 stdin 固定为 <code>/dev/null</code>、盘点额外 FD 为 0。新 v3 运行确定性生成 fit/dev/audit 私有 shard，但仍未启动 optimizer、读 GT 或计算重建指标。</p>
+            <div class="diagnostic-metric-grid four-up" style="margin-top:10px;">
+              <div class="metric"><b>14</b><span>官方 stage worker 在 release root 内允许的冻结内容输入；不代表父进程整个文件系统只可读 14 项</span></div>
+              <div class="metric"><b>4,800 / 672 / 672</b><span>fit / dev / audit rays；身份交集为 0，并集严格为 6,144</span></div>
+              <div class="metric"><b>53 / 53</b><span>worker 内部探针、FD、no-replace、私有 seal、repeat、runner 语义与 claim closure</span></div>
+              <div class="metric"><b>0</b><span>optimizer steps、checkpoint、field metric、reprojection metric</span></div>
+            </div>
+            <div class="two-col" style="margin-top:12px; align-items:start;">
+              <div>
+                <h3>这次真正完成了什么</h3>
+                <ol>
+                  <li><strong>最小能力树：</strong>逐文件 SHA 后只复制 14 个获准输入；中间/最终 symlink、hardlink、路径逃逸和额外节点都 fail-closed。</li>
+                  <li><strong>worker 内部阻断：</strong>获准读取、禁止 GT/release 读取与网络负测都在 worker 自身执行；直调 worker 或把禁止文件塞入 stdin 都会失败。</li>
+                  <li><strong>原子封存：</strong>文件和目录先 <code>fsync</code>，再用 <code>renamex_np(RENAME_EXCL)</code> 发布；已有空/非空目录都不得覆盖。</li>
+                  <li><strong>真实重复：</strong>第二次独立 seal 的 fit/dev/audit NPZ 与第一次逐字节相同。</li>
+                </ol>
+              </div>
+              <div>
+                <h3>它还不能证明什么</h3>
+                <ol>
+                  <li><strong>不是完整 mount namespace：</strong>当前证明的是受控 worker 对指定数据根和网络的 OS 拒绝，不是管理员不可访问。</li>
+                  <li><strong>不是 fresh blind：</strong>这个 Phantom 已公开且已开封，不能证明研究者本人没见过数据。</li>
+                  <li><strong>runner 还没写完：</strong>模型、AuditedD05Projector、260-event ledger 和失败 tombstone 尚未实现。</li>
+                  <li><strong>没有模型结果：</strong>三个 shard 的私有值没有上线，也没有任何 loss、重建或排行榜。</li>
+                </ol>
+              </div>
+            </div>
+            <div class="table-wrap" style="margin-top:12px;">
+              <table>
+                <thead><tr><th>sealed split</th><th>rays</th><th>canonical SHA-256</th><th>repeat</th><th>公开策略</th></tr></thead>
+                <tbody>
+                  <tr><td><strong>fit</strong></td><td>4,800</td><td><code>bced0252...4c895</code></td><td>byte-identical</td><td>只公开 hash；NPZ 留本机</td></tr>
+                  <tr><td><strong>dev</strong></td><td>672</td><td><code>e8ecfd3a...3520d</code></td><td>byte-identical</td><td>只公开 hash；NPZ 留本机</td></tr>
+                  <tr><td><strong>audit</strong></td><td>672</td><td><code>506583d6...524b</code></td><td>byte-identical</td><td>TRAINER 不可见；NPZ 留本机</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="alert warning"><strong>两次失败历史都保留</strong><span>第一次真实 stage 因路径元数据也被禁止而 fail-closed；后来的独立审计又推翻了“worker 已严格锁住”的过强声明。旧 attestation 保留为审计前历史，commit <code>0705adbe</code> 修复直调和 stdin/FD 绕过后，用全新 v3 目录重做两次 seal。</span></div>
+            <div class="pipeline four-step" aria-label="D0.6 broker 到训练的真实门控路线">
+              <div><b>Broker · 审计后完成</b><span>worker 内部 read/network 负测、stdin/FD 封闭、RENAME_EXCL 与 strict-root verifier。</span></div>
+              <div><b>Semantics · 已冻结</b><span>所有 P90/P95 用 linear；九个 terminal receipts 可为 checkpoint 或 failure tombstone。</span></div>
+              <div><b>Runner · 当前施工</b><span>三模型、AuditedD05Projector、260-event ledger、S1/S2 lockstep 与失败保存。</span></div>
+              <div><b>训练 · 仍关闭</b><span>synthetic full dry-run 和独立审计通过后，才讨论单 opened field 正式筛选。</span></div>
+            </div>
+            <div class="two-col" style="margin-top:12px; align-items:start;">
+              <div class="alert info" style="margin:0;"><strong>统一 quantile</strong><span><code>q=P95(|e*base|)</code>、correction p90、Hausdorff95 和 view p90 全部固定为 <code>numpy.quantile(..., method="linear")</code>，结果以 float64 hex 封存。</span></div>
+              <div class="alert info" style="margin:0;"><strong>九个 terminal receipts</strong><span>每个 arm × seed 必须封存 checkpoint 或 failure tombstone。只有九份都存在且所有 trainer 已退出，AUDITOR 才能开 audit。</span></div>
+            </div>
+            <div class="actions" style="margin-top:12px;">
+              <a class="button primary" href="document_reader.html?doc=docs%2Fopen_nir_bos_d0_6_broker_result_v2_2026-07-23.md">读审计修复报告 v2</a>
+              <a class="button" href="docs/open_nir_bos_d0_6_broker_attestation_v2_2026-07-23.json">公开 attestation v2</a>
+              <a class="button" href="learning_labs/open_nir_bos_d0_6_execution_semantics_overlay.json">runner 语义 overlay</a>
+              <a class="button" href="learning_labs/results/open_nir_bos_d0_6_broker_validation_v2/validation.json">53 项机器验证</a>
+              <a class="button" href="#open-nir-bos-d0-6-preflight">回看 136 项设计预检</a>
+              <a class="button" href="document_reader.html?doc=docs%2Foperator_3d_learning_log.md&amp;anchor=192-审计说门还有缝所以重锁一次">讲人话日志 192</a>
+            </div>
+            <div class="alert info" style="margin-bottom:0;"><strong>突破监测：否</strong><span>真实进展是 broker 数据平面、OS 路径/网络阻断、重复封存和 runner 语义修复；不是三维重建、算法优势、算子学习、跨场泛化或论文突破。</span></div>
           </div>
           <details class="archive-details">
             <summary>D0.5 当时的路线规划（M0 已完成，留作历史）</summary>
